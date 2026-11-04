@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리의 작은 교실 | Three.js</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<style>
+:root{font-family:'IBM Plex Sans KR',system-ui,sans-serif;color:#263b31;background:#d8eafa}*{box-sizing:border-box}body{margin:0;overflow:hidden}#canvas{position:fixed;inset:0;touch-action:none}#canvas canvas{display:block;width:100%;height:100%}.card{background:rgba(250,249,242,.89);border:1px solid rgba(44,68,53,.14);box-shadow:0 8px 30px #233b291c;backdrop-filter:blur(12px);border-radius:14px}.title{position:fixed;top:16px;left:16px;max-width:320px;padding:14px 18px;pointer-events:none}.eyebrow{font-size:11px;font-weight:600;color:#778d7d;letter-spacing:.1em}h1{font-family:'Nanum Pen Script',cursive;color:#326b50;font-weight:400;font-size:40px;line-height:1;margin:5px 0}.hint{font-size:12px;line-height:1.55;color:#74867b;margin:4px 0}.dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px 12px;padding:9px 12px;width:max-content;max-width:calc(100% - 32px)}.group{display:flex;align-items:center;gap:6px}.group+.group{border-left:1px solid #d8e0d8;padding-left:12px}.label{font-size:11px;font-weight:600;color:#6c7f73;white-space:nowrap}.seg{display:flex;background:#e6ede5;border-radius:8px;padding:2px;gap:2px}button{font:inherit;font-size:12px;border:0;border-radius:6px;background:transparent;color:#405b4b;cursor:pointer;padding:6px 8px;white-space:nowrap}button:hover{background:#d6e5d8}button[aria-pressed=true]{background:#3e7556;color:#fff}button:focus-visible{outline:2px solid #397052;outline-offset:2px}.toggle{border:1px solid #d5dfd4;background:#ffffffb5}.toggle[aria-pressed=true]{background:#dcecdc;color:#2e6849;border-color:#b3d0b8}.credit{position:fixed;right:18px;top:18px;font-size:10px;color:#667e70;text-decoration:none;background:#f8fbf3bd;padding:8px 12px;border-radius:20px}.status{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:16px 20px;max-width:min(420px,90vw);font-size:13px;line-height:1.7;text-align:center}.status:empty{display:none}@media(max-width:900px){.dock{bottom:10px;width:calc(100% - 20px);max-width:620px;justify-content:flex-start;gap:7px}.group+.group{border:0;padding:0}.group{flex-wrap:wrap}.title{top:10px;left:10px;padding:10px 14px}h1{font-size:32px}.credit{top:10px;right:10px}.hint{font-size:11px}}@media(max-width:520px){.dock{max-height:40vh;overflow:auto}.seg{overflow:auto;max-width:calc(100vw - 90px)}button{font-size:11px;padding:6px}.credit{font-size:9px;max-width:150px;text-align:right}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="canvas" aria-label="3D 교실. 드래그로 회전하고 스크롤로 확대하거나 축소하세요."></div>
+<header class="card title"><div class="eyebrow">A LITTLE CLASSROOM · THREE.JS</div><h1>우리의 작은 교실</h1><p class="hint">드래그로 둘러보고, 휠로 가까이 다가가 보세요.</p></header>
+<a class="credit" href="https://mumladze.itch.io/lowpoly-stylized-classroom" target="_blank" rel="noreferrer">3D MODEL · MUMLADZE ↗</a>
+<nav class="card dock" aria-label="교실 보기 설정">
+ <div class="group"><span class="label">시점</span><div class="seg" id="views"><button data-view="overview" aria-pressed="true">전체</button><button data-view="back" aria-pressed="false">교실 뒤</button><button data-view="student" aria-pressed="false">학생 자리</button><button data-view="teacher" aria-pressed="false">교탁</button><button data-view="top" aria-pressed="false">위에서</button></div></div>
+ <div class="group"><span class="label">시간</span><div class="seg" id="times"><button data-time="morning" aria-pressed="true">아침</button><button data-time="noon" aria-pressed="false">한낮</button><button data-time="sunset" aria-pressed="false">노을</button><button data-time="night" aria-pressed="false">밤</button></div></div>
+ <div class="group"><span class="label">조명</span><div class="seg" id="lights"><button data-light="directional" aria-pressed="true">방향광</button><button data-light="point" aria-pressed="false">점광원</button><button data-light="spot" aria-pressed="false">스포트</button></div></div>
+ <div class="group"><button class="toggle" id="shadow" aria-pressed="true">그림자</button><button class="toggle" id="lamp" aria-pressed="true">형광등</button><button class="toggle" id="rotate" aria-pressed="false">자동 회전</button></div>
+</nav><div class="card status" id="status" role="status">교실을 불러오는 중이에요…</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const host=document.querySelector('#canvas'),status=document.querySelector('#status');
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1,.1,1000);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;host.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=1;controls.maxDistance=200;controls.maxPolarAngle=Math.PI*.49;
+const ambient=new THREE.HemisphereLight(0xeaf7ef,0x776f60,.8);scene.add(ambient);
+const directional=new THREE.DirectionalLight(0xffefd9,3),point=new THREE.PointLight(0xffe6c4,3800,140,2),spot=new THREE.SpotLight(0xffead0,7000,150,Math.PI/4,.5,2);
+const lights={directional,point,spot};for(const light of Object.values(lights)){light.castShadow=true;light.shadow.mapSize.set(2048,2048);light.shadow.bias=-.0002;light.shadow.normalBias=.03;light.shadow.camera.near=.5;light.shadow.camera.far=200;scene.add(light)}
+scene.add(directional.target,spot.target);directional.position.set(-45,75,45);directional.target.position.set(0,0,-6);Object.assign(directional.shadow.camera,{left:-50,right:50,top:50,bottom:-50});directional.shadow.camera.updateProjectionMatrix();point.position.set(0,17,-5);spot.position.set(-8,38,4);spot.target.position.set(0,0,-6);
+const roomLamp=new THREE.PointLight(0xfff3d8,900,60,2);roomLamp.position.set(0,17,-5);scene.add(roomLamp);
+function choose(container,attribute,value){for(const button of document.querySelectorAll(`${container} button`))button.setAttribute('aria-pressed',String(button.dataset[attribute]===value))}
+for(const button of document.querySelectorAll('[data-light]'))button.addEventListener('click',()=>{for(const [name,light] of Object.entries(lights))light.visible=name===button.dataset.light;choose('#lights','light',button.dataset.light)});point.visible=false;spot.visible=false;
+const times={morning:{background:0xcfe4ed,sky:0xe8f5ff,ground:0x827d6b,ambient:.8,color:0xffe8cb,power:1},noon:{background:0xb8dcf2,sky:0xffffff,ground:0x9b917c,ambient:1.05,color:0xfff6df,power:1.2},sunset:{background:0xf3c7a8,sky:0xffd8b4,ground:0x77656a,ambient:.65,color:0xffa565,power:.85},night:{background:0x23394e,sky:0x9dbce0,ground:0x354052,ambient:.25,color:0x9bb8ee,power:.24}};
+function setTime(name){const t=times[name];scene.background=new THREE.Color(t.background);ambient.color.setHex(t.sky);ambient.groundColor.setHex(t.ground);ambient.intensity=t.ambient;directional.color.setHex(t.color);point.color.setHex(t.color);spot.color.setHex(t.color);directional.intensity=3*t.power;point.intensity=3800*t.power;spot.intensity=7000*t.power;choose('#times','time',name)}
+for(const button of document.querySelectorAll('[data-time]'))button.addEventListener('click',()=>setTime(button.dataset.time));setTime('morning');
+const views={overview:{p:[-83,86,-90],t:[0,5,-6]},back:{p:[0,11,-31],t:[0,8,23]},student:{p:[-11,7,-3],t:[4,8,23]},teacher:{p:[0,9,19],t:[0,7,-10]},top:{p:[.1,100,-6],t:[0,0,-6]}};
+let cameraTween=null;
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function setView(name,instant=false){const v=views[name],destination=new THREE.Vector3().fromArray(v.p),target=new THREE.Vector3().fromArray(v.t);choose('#views','view',name);if(instant||reducedMotion){cameraTween=null;camera.position.copy(destination);controls.target.copy(target);controls.update();return}cameraTween={start:performance.now(),from:camera.position.clone(),targetFrom:controls.target.clone(),to:destination,targetTo:target,duration:1100}}
+controls.addEventListener('start',()=>{cameraTween=null});
+for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>setView(button.dataset.view));setView('overview',true);
+function toggle(id,callback){const button=document.querySelector(id);button.addEventListener('click',()=>{const enabled=button.getAttribute('aria-pressed')!=='true';button.setAttribute('aria-pressed',String(enabled));callback(enabled)})}
+toggle('#shadow',enabled=>{renderer.shadowMap.enabled=enabled;for(const light of Object.values(lights))light.castShadow=enabled;scene.traverse(o=>{if(o.isMesh)for(const material of (Array.isArray(o.material)?o.material:[o.material]))material.needsUpdate=true})});toggle('#lamp',enabled=>roomLamp.visible=enabled);toggle('#rotate',enabled=>controls.autoRotate=enabled);
+const texLoader=new THREE.TextureLoader(),texturePath='./LowPoly%20Stylized%20Classroom/Textures/';
+function decalTexture(file){const tex=texLoader.load(texturePath+encodeURIComponent(file));tex.colorSpace=THREE.SRGBColorSpace;tex.flipY=false;return tex}
+const decals={CracksMat:decalTexture('Cracks.png'),DecalsMat:decalTexture('Decals.png')};
+// The supplied model combines the walls into shared meshes. Split their triangles
+// into sides once, preserving the original geometry, UVs, materials and transforms.
+const wallSides={left:[],right:[],front:[],back:[]};
+function nodeName(object){for(let node=object;node;node=node.parent){const name=node.name.replace(/_/g,' ').toLowerCase();if(['walls','wall parts','cracks','decals','winodws','glass','curtain','door','chalkboard','clock','map','board','book shelf','books'].includes(name))return name}return ''}
+function sideFor(x,z){const distances=[['left',Math.abs(x+22)],['right',Math.abs(x-22)],['front',Math.abs(z-24)],['back',Math.abs(z+37)]];distances.sort((a,b)=>a[1]-b[1]);return distances[0][1]<2.5?distances[0][0]:null}
+function prepareWalls(root){root.updateMatrixWorld(true);const candidates=[];root.traverse(object=>{if(object.isMesh)candidates.push(object)});
+ for(const mesh of candidates){const name=nodeName(mesh),attached={winodws:'right',glass:'right',curtain:'right',door:'front',chalkboard:'front',clock:'front',map:'left',board:'left','book shelf':'back'}[name];
+  if(attached){wallSides[attached].push(mesh);continue}
+  if(!['walls','wall parts','cracks','decals','books'].includes(name))continue;
+  const geometry=mesh.geometry,positions=geometry.getAttribute('position'),index=geometry.index,buckets={left:[],right:[],front:[],back:[],other:[]};if(!positions)continue;
+  const count=index?index.count:positions.count,p=new THREE.Vector3();
+  for(let i=0;i+2<count;i+=3){let x=0,y=0,z=0;const tri=[];for(let j=0;j<3;j++){const n=index?index.getX(i+j):i+j;tri.push(n);p.fromBufferAttribute(positions,n).applyMatrix4(mesh.matrixWorld);x+=p.x;y+=p.y;z+=p.z}const side=name==='books'?(x/3>-18&&x/3< -6&&z/3> -37&&z/3< -32&&y/3>.5&&y/3<17?'back':'other'):(sideFor(x/3,z/3)||'other');buckets[side].push(...tri)}
+  const group=new THREE.Group();group.position.copy(mesh.position);group.quaternion.copy(mesh.quaternion);group.scale.copy(mesh.scale);group.name=mesh.name;mesh.parent.add(group);
+  for(const [side,indices] of Object.entries(buckets)){if(!indices.length)continue;const partGeometry=geometry.clone();partGeometry.clearGroups();partGeometry.setIndex(indices);const part=new THREE.Mesh(partGeometry,mesh.material);part.castShadow=mesh.castShadow;part.receiveShadow=mesh.receiveShadow;part.frustumCulled=mesh.frustumCulled;group.add(part);if(side!=='other')wallSides[side].push(part)}
+  mesh.parent.remove(mesh);geometry.dispose();
+ }
+}
+function updateWalls(){const x=camera.position.x,z=camera.position.z;const hidden={left:x < -24,right:x > 24,front:z > 26,back:z < -39};for(const [side,objects] of Object.entries(wallSides))for(const object of objects)object.visible=!hidden[side]}
+new GLTFLoader().load('./classroom.glb',gltf=>{gltf.scene.traverse(object=>{if(!object.isMesh)return;object.castShadow=true;object.receiveShadow=true;for(const material of (Array.isArray(object.material)?object.material:[object.material])){if(decals[material.name]){material.map=decals[material.name];material.transparent=true;material.alphaTest=.04;material.depthWrite=false;material.side=THREE.DoubleSide;material.needsUpdate=true}if(material.name==='GlassMat'){material.color.set('#c5e5ed');material.transparent=true;material.opacity=.12;material.roughness=.2;material.metalness=0;material.side=THREE.DoubleSide;material.depthWrite=false;material.needsUpdate=true}if(/outline|glass|decal|crack/i.test(material.name))object.castShadow=false}});scene.add(gltf.scene);prepareWalls(gltf.scene);updateWalls();status.textContent=''},undefined,error=>{console.error(error);status.textContent='교실 모델을 불러오지 못했어요. classroom.glb 파일과 로컬 서버를 확인해 주세요.'});
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();renderer.setAnimationLoop(()=>{if(cameraTween){const t=Math.min(1,(performance.now()-cameraTween.start)/cameraTween.duration),ease=t*t*(3-2*t);camera.position.lerpVectors(cameraTween.from,cameraTween.to,ease);controls.target.lerpVectors(cameraTween.targetFrom,cameraTween.targetTo,ease);if(t>=1)cameraTween=null}const auto=controls.autoRotate;if(cameraTween)controls.autoRotate=false;controls.update();controls.autoRotate=auto;updateWalls();renderer.render(scene,camera)});
+</script>
+</body></html>
+
